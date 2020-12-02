@@ -39,6 +39,7 @@ IndexPQFastScan::IndexPQFastScan(
     Index(d, metric), pq(d, M, nbits),
     bbs(bbs), ntotal2(0), M2(roundup(M, 2))
 {
+    FAISS_THROW_IF_NOT(nbits == 4);
     is_trained = false;
 }
 

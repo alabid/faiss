@@ -75,6 +75,7 @@ class TestFactory(unittest.TestCase):
     def test_factory_fast_scan(self):
         index = faiss.index_factory(56, "PQ28x4fs")
         self.assertEqual(index.bbs, 32)
+        self.assertEqual(index.pq.nbits, 4)
         index = faiss.index_factory(56, "PQ28x4fs_64")
         self.assertEqual(index.bbs, 64)
         index = faiss.index_factory(56, "IVF50,PQ28x4fs_64", faiss.METRIC_INNER_PRODUCT)

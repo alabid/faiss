@@ -295,7 +295,7 @@ Index *index_factory (int d, const char *description_in, MetricType metric)
                 index_1 = index_ivf;
             } else {
                 IndexPQFastScan *index_pq = new IndexPQFastScan (
-                    d, M, nbit, metric, bbs
+                    d, M, 4, metric, bbs
                 );
                 index_1 = index_pq;
             }
