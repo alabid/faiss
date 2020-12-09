@@ -46,6 +46,9 @@ struct IndexRefine: Index {
         idx_t n, const float* x, idx_t k,
         float* distances, idx_t* labels) const override;
 
+    // reconstruct is routed to the refine_index
+    void reconstruct (idx_t key, float * recons) const override;
+
     ~IndexRefine() override;
 };
 

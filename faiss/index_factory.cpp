@@ -88,6 +88,32 @@ bool str_ends_with_digits(const std::string& s, const std::string& suffix)
     return str_ends_with(s.substr(0, i + 1), suffix);
 }
 
+void find_matching_parentheses(const std::string &s, int & i0, int & i1) {
+    int st = 0;
+    for (int i = 0; i < s.length(); i++) {
+        if (s[i] == '(') {
+            if (st == 0) {
+                i0 = i;
+            }
+            st++;
+        }
+
+        if (s[i] == ')') {
+            st--;
+            if (st == 0) {
+                i1 = i;
+                return;
+            }
+            if (st < 0) {
+                FAISS_THROW_FMT("factory string %s: unbalanced parentheses", s.c_str());
+            }
+        }
+
+    }
+    FAISS_THROW_FMT("factory string %s: unbalanced parentheses st=%d", s.c_str(), st);
+
+}
+
 } // anonymous namespace
 
 Index *index_factory (int d, const char *description_in, MetricType metric)
@@ -109,10 +135,8 @@ Index *index_factory (int d, const char *description_in, MetricType metric)
     // handle indexes in parentheses
     while (description.find('(') != std::string::npos) {
         // then we make a sub-index and remove the () from the description
-        int i0 = description.find('(');
-        int i1 = description.find(')');
-        FAISS_THROW_IF_NOT_MSG(
-            i1 != std::string::npos, "string must contain closing parenthesis");
+        int i0, i1;
+        find_matching_parentheses(description, i0, i1);
 
         std::string sub_description = description.substr(i0 + 1, i1 - i0 - 1);
 

@@ -152,6 +152,11 @@ void IndexRefine::search (
 
 }
 
+void IndexRefine::reconstruct (idx_t key, float * recons) const {
+    refine_index->reconstruct (key, recons);
+}
+
+
 
 
 IndexRefine::~IndexRefine ()

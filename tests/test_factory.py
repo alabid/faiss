@@ -110,8 +110,12 @@ class TestFactory(unittest.TestCase):
         rf = faiss.downcast_index(index.refine_index)
         self.assertEqual(rf.pq.M, 25)
 
-
-
+    def test_nested_parenteses(self):
+        index = faiss.index_factory(50, "IVF1000(IVF20,SQ4,Refine(SQ8)),Flat")
+        q = faiss.downcast_index(index.quantizer)
+        qref = faiss.downcast_index(q.refine_index)
+        # check we can access the scalar quantizer
+        self.assertEqual(qref.sq.code_size, 50)
 
 
 
