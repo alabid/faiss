@@ -117,7 +117,9 @@ class TestFactory(unittest.TestCase):
         # check we can access the scalar quantizer
         self.assertEqual(qref.sq.code_size, 50)
 
-
+    def test_residual(self):
+        index = faiss.index_factory(50, "IVF1000,PQ25x4fsr")
+        self.assertTrue(index.by_residual)
 
 
 class TestCloneSize(unittest.TestCase):

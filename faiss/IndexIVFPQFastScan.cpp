@@ -413,7 +413,7 @@ void IndexIVFPQFastScan::compute_LUT(
                 AlignedTable<float> ip_table(n * dim12);
                 pq.compute_inner_prod_tables (n, x, ip_table.get());
 
-#pragma omp parallel if (n * nprobe > 8000)
+#pragma omp parallel for if (n * nprobe > 8000)
                 for(idx_t i = 0; i < n; i++) {
                     for(idx_t j = 0; j < nprobe; j++) {
                         size_t ij = i * nprobe + j;
@@ -433,7 +433,7 @@ void IndexIVFPQFastScan::compute_LUT(
                 biases.resize(n * nprobe);
                 memset(biases.get(), 0, sizeof(float) * n * nprobe);
 
-#pragma omp parallel if (n > 8000)
+#pragma omp parallel for if (n * nprobe > 8000)
                 for(idx_t i = 0; i < n; i++) {
                     for(idx_t j = 0; j < nprobe; j++) {
                         ivfpq.quantizer->compute_residual(

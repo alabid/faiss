@@ -301,11 +301,13 @@ Index *index_factory (int d, const char *description_in, MetricType metric)
             index_ivf->own_fields = true;
             index_1 = index_ivf;
         } else if (!index && (
-            sscanf (tok, "PQ%dx4fs_%d", &M, &bbs) == 2 ||
-            (sscanf (tok, "PQ%dx4f%c", &M, &c) == 2 && c == 's') )) {
+             sscanf (tok, "PQ%dx4fs_%d", &M, &bbs) == 2 ||
+            (sscanf (tok, "PQ%dx4f%c", &M, &c) == 2 && c == 's') ||
+            (sscanf (tok, "PQ%dx4fs%c", &M, &c) == 2 && c == 'r'))) {
             if (bbs == -1) {
                 bbs = 32;
             }
+            bool by_residual = str_ends_with(stok, "fsr");
             if (coarse_quantizer) {
                 IndexIVFPQFastScan *index_ivf = new IndexIVFPQFastScan(
                     coarse_quantizer, d, ncentroids, M, 4, metric, bbs
@@ -313,6 +315,7 @@ Index *index_factory (int d, const char *description_in, MetricType metric)
                 index_ivf->quantizer_trains_alone =
                     get_trains_alone (coarse_quantizer);
                 index_ivf->metric_type = metric;
+                index_ivf->by_residual = by_residual;
                 index_ivf->cp.spherical = metric == METRIC_INNER_PRODUCT;
                 del_coarse_quantizer.release ();
                 index_ivf->own_fields = true;
