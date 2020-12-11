@@ -417,13 +417,18 @@ void IndexIVFPQFastScan::compute_LUT(
                 for(idx_t i = 0; i < n; i++) {
                     for(idx_t j = 0; j < nprobe; j++) {
                         size_t ij = i * nprobe + j;
-
-                        fvec_madd_avx (
-                            dim12,
-                            precomputed_table.get() + coarse_ids[ij] * dim12,
-                            -2, ip_table.get() + i * dim12,
-                            dis_tables.get() + ij * dim12
-                        );
+                        idx_t cij = coarse_ids[ij];
+                        if (cij >= 0) {
+                            fvec_madd_avx (
+                                dim12,
+                                precomputed_table.get() + cij * dim12,
+                                -2, ip_table.get() + i * dim12,
+                                dis_tables.get() + ij * dim12
+                            );
+                        } else {
+                            // fill with NaNs so that they are ignored during quantization
+                            memset (dis_tables.get() + ij * dim12, -1, sizeof(float) * dim12);
+                        }
                     }
                 }
 
