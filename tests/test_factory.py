@@ -3,11 +3,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from __future__ import absolute_import, division, print_function
 
 import numpy as np
 import unittest
 import faiss
+
+from faiss.contrib import factory_tools
 
 
 class TestFactory(unittest.TestCase):
@@ -120,6 +121,14 @@ class TestFactory(unittest.TestCase):
     def test_residual(self):
         index = faiss.index_factory(50, "IVF1000,PQ25x4fsr")
         self.assertTrue(index.by_residual)
+
+class TestCodeSize(unittest.TestCase):
+
+    def test_1(self):
+        self.assertEqual(
+            factory_tools.get_code_size(50, "IVF32,Flat,Refine(PQ25x12)"),
+            50 * 4 + (25 * 12 + 7) // 8
+        )
 
 
 class TestCloneSize(unittest.TestCase):

@@ -503,7 +503,7 @@ void IndexIVFPQFastScan::compute_LUT_uint8(
     }
     uint64_t t1 = get_cy();
 
-#pragma omp parallel if (n > 8000)
+#pragma omp parallel for if (n > 100)
     for(size_t i = 0; i < n; i++) {
         const float *t_in = dis_tables_float.get() + i * dim123;
         const float *b_in = nullptr;
@@ -569,8 +569,8 @@ void IndexIVFPQFastScan::search_dispatch_implem(
 
     } else if (impl >= 10 && impl <= 13) {
         size_t ndis = 0, nlist_visited = 0;
-        int nt = std::min(omp_get_max_threads(), int(n));
-        if (nt < 2) {
+
+        if (n < 2) {
             if (impl == 12 || impl == 13) {
                 search_implem_12<C>
                     (n, x, k, distances, labels, impl, &ndis, &nlist_visited);
@@ -580,10 +580,29 @@ void IndexIVFPQFastScan::search_dispatch_implem(
             }
         } else {
             // explicitly slice over threads
-#pragma omp parallel for num_threads(nt) reduction(+: ndis, nlist_visited)
-            for (int slice = 0; slice < nt; slice++) {
-                idx_t i0 = n * slice / nt;
-                idx_t i1 = n * (slice + 1) / nt;
+            int nslice;
+            if (n <= omp_get_max_threads()) {
+                nslice = n;
+            } else if (by_residual && metric_type == METRIC_L2) {
+                // make sure we don't make too big LUT tables
+                size_t lut_size_per_query =
+                    pq.M * pq.ksub * nprobe * (sizeof(float) + sizeof(uint8_t));
+
+                size_t max_lut_size = precomputed_table_max_bytes;
+
+                // how many queries we can handle within mem budget
+                size_t nq_ok = std::max(max_lut_size / lut_size_per_query, size_t(1));
+
+                nslice = roundup(n / nq_ok, omp_get_max_threads());
+            } else {
+                // LUTs unlikely to be a limiting factor
+                nslice = omp_get_max_threads();
+            }
+
+#pragma omp parallel for reduction(+: ndis, nlist_visited)
+            for (int slice = 0; slice < nslice; slice++) {
+                idx_t i0 = n * slice / nslice;
+                idx_t i1 = n * (slice + 1) / nslice;
                 float *dis_i = distances + i0 * k;
                 idx_t *lab_i = labels + i0 * k;
                 if (impl == 12 || impl == 13) {

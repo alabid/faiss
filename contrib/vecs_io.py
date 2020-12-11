@@ -7,6 +7,7 @@ import numpy as np
 
 """
 I/O functions in fvecs, bvecs, ivecs formats
+definition of the formats here: http://corpus-texmex.irisa.fr/
 """
 
 
