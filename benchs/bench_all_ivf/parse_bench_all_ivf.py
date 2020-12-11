@@ -12,8 +12,75 @@ import re
 
 from argparse import Namespace
 
-from faiss.contrib.factory_tools import get_code_size as unitsize
+# from faiss.contrib.factory_tools import get_code_size as unitsize
 
+
+
+def get_code_size(d, indexkey):
+    """ size of one vector in an index in dimension d
+    constructed with factory string indexkey"""
+
+    if indexkey == "Flat":
+        return d * 4
+
+    if indexkey.endswith(",RFlat"):
+        return d * 4 + get_code_size(d, indexkey[:-len(",RFlat")])
+
+    mo = re.match("IVF\\d+(_HNSW32)?,(.*)$", indexkey)
+    if mo:
+        return get_code_size(d, mo.group(2))
+
+    mo = re.match("IVF\\d+\\(.*\\)?,(.*)$", indexkey)
+    if mo:
+        return get_code_size(d, mo.group(1))
+
+    mo = re.match("IMI\\d+x2,(.*)$", indexkey)
+    if mo:
+        return get_code_size(d, mo.group(1))
+
+    mo = re.match("(.*),Refine\\((.*)\\)$", indexkey)
+    if mo:
+        return get_code_size(d, mo.group(1)) + get_code_size(d, mo.group(2))
+
+    mo = re.match('PQ(\\d+)x(\\d+)(fs|fsr)?$', indexkey)
+    if mo:
+        return (int(mo.group(1)) * int(mo.group(2)) + 7) // 8
+
+    mo = re.match('PQ(\\d+)\\+(\\d+)$', indexkey)
+    if mo:
+        return (int(mo.group(1)) + int(mo.group(2)))
+
+    mo = re.match('PQ(\\d+)$', indexkey)
+    if mo:
+        return int(mo.group(1))
+
+    if indexkey == "HNSW32":
+        return d * 4 + 64 * 4 # roughly
+
+    if indexkey == 'SQ8':
+        return d
+    elif indexkey == 'SQ4':
+        return (d + 1) // 2
+    elif indexkey == 'SQ6':
+        return (d * 6 + 7) // 8
+    elif indexkey == 'SQfp16':
+        return d * 2
+
+    mo = re.match('PCAR?(\\d+),(.*)$', indexkey)
+    if mo:
+        return get_code_size(int(mo.group(1)), mo.group(2))
+    mo = re.match('OPQ\\d+_(\\d+),(.*)$', indexkey)
+    if mo:
+        return get_code_size(int(mo.group(1)), mo.group(2))
+    mo = re.match('OPQ\\d+,(.*)$', indexkey)
+    if mo:
+        return get_code_size(d, mo.group(1))
+    mo = re.match('RR(\\d+),(.*)$', indexkey)
+    if mo:
+        return get_code_size(int(mo.group(1)), mo.group(2))
+    raise RuntimeError("cannot parse " + indexkey)
+
+unitsize = get_code_size
 
 
 def dbsize_from_name(dbname):
@@ -49,9 +116,12 @@ def parse_result_file(fname):
     keys = []
     stats = {}
     stats['run_version'] = fname[-8]
+    indexkey = None
     for l in open(fname):
         if l.startswith("srun:"):
             # looks like a crash...
+            if indexkey is None:
+                raise RuntimeError("instant crash")
             break
         elif st == 0:
             if l.startswith("dataset in dimension"):
@@ -132,19 +202,19 @@ def collect_results_for(db='deep1M', prefix="autotune."):
                 fname.endswith('.stdout')
             ):
             continue
-        indexkey, res, _, stats = parse_result_file(logdir + fname)
-        print("parse", fname, res.size)
+        print("parse", fname, end="   ", flush=True)
+        try:
+            indexkey, res, _, stats = parse_result_file(logdir + fname)
+        except RuntimeError as e:
+            print("FAIL %s" % e)
+            res = np.zeros((2, 0))
+        except Exception as e:
+            print("PARSE ERROR")
+            res = np.zeros((2, 0))
+        else:
+            print(len(res), "results")
         if res.size == 0:
             missing.append(fname)
-            errfile = logdir + fname.replace('.stdout', '.stderr')
-            if os.path.exists(errfile):
-                errorline = open().readlines()
-                if len(errorline) > 0:
-                    errorline = errorline[-1]
-                else:
-                    errorline = 'NO STDERR'
-                print(fname, stats['CHRONOS_JOB_INSTANCE_ID'], errorline)
-
         else:
             if indexkey in allres:
                 if allstats[indexkey]['run_version'] > stats['run_version']:

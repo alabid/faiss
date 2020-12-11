@@ -372,7 +372,6 @@ for k in 4 8 16 64 256; do
     done
 done
 
-fi
 
 ############################### 10M experiments
 
@@ -437,7 +436,7 @@ for db in deep10M bigann10M; do
             key=autotune.db$db.${indexkey//,/_}
             key="${key//(/_}"
             key="${key//)/_}"
-            run_on_1machine_3h $key.j \
+            run_on_1machine_3h $key.k \
               python -u bench_all_ivf.py \
                     --db $db \
                     --indexkey "$indexkey" \
@@ -451,8 +450,7 @@ for db in deep10M bigann10M; do
     done
 done
 
-if false; then
-
+fi
 ############################### 100M experiments
 
 for db in deep100M bigann100M; do
@@ -471,34 +469,44 @@ for db in deep100M bigann100M; do
 
         indexkeys="
             OPQ8_64,$coarse64,PQ8
-            OPQ16_64,$coarse64,PQ16
+            OPQ16_64,$coarse64,PQ16x4fs
+
             PCAR32,$coarse32,SQ4
+            OPQ16_64,$coarse64,PQ16
+            OPQ32_64,$coarse64,PQ32x4fs
+
             OPQ32_128,$coarse128,PQ32
             PCAR64,$coarse64,SQ4
             PCAR32,$coarse32,SQ8
-            PCAR64,$coarse64,SQ8
-            PCAR32,$coarse32,SQfp16
+            OPQ64_128,$coarse128,PQ64x4fs
+
             PCAR128,$coarse128,SQ4
             OPQ64_128,$coarse128,PQ64
 
+            PCAR32,$coarse32,SQfp16
+            PCAR64,$coarse64,SQ8
             OPQ128_256,$coarse256,PQ128x4fs
-            OPQ64_128,$coarse128,PQ64x4fs
-            OPQ32_64,$coarse64,PQ32x4fs
-            $coarseD,PQ$((dim/2))x4fs
-            OPQ16_64,$coarse64,PQ16x4fs
 
             OPQ56_112,$coarse112,PQ7+56
             OPQ16_64,$coarse64,PQ16x4fs,Refine(OPQ56_112,PQ56)
 
+            $coarseD,PQ$((dim/2))x4fs
         "
 
+        indexkeys="
+            OPQ128_256,$coarse256,PQ128x4fsr
+            OPQ64_128,$coarse128,PQ64x4fsr
+            OPQ32_64,$coarse64,PQ32x4fsr
+            OPQ16_64,$coarse64,PQ16x4fsr
+            OPQ16_64,$coarse64,PQ16x4fsr,Refine(OPQ56_112,PQ56)
+        "
 
         for indexkey in $indexkeys
         do
             key=autotune.db$db.${indexkey//,/_}
             key="${key//(/_}"
             key="${key//)/_}"
-            run_on_1machine $key.c \
+            run_on_1machine $key.e \
                  python -u bench_all_ivf.py \
                     --db $db \
                     --indexkey "$indexkey" \
@@ -507,10 +515,14 @@ for db in deep100M bigann100M; do
                     --searchthreads 32 \
                     --min_test_duration 3 \
                     $( add_precomputed_quantizer $db $coarse ) \
-                    --add_bs 1000000
+                    --add_bs 1000000 \
+                    --autotune_max nprobe:2000
+
         done
     done
 done
+
+if false; then
 
 
 #################################
