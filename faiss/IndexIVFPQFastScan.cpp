@@ -589,11 +589,9 @@ void IndexIVFPQFastScan::search_dispatch_implem(
                     pq.M * pq.ksub * nprobe * (sizeof(float) + sizeof(uint8_t));
 
                 size_t max_lut_size = precomputed_table_max_bytes;
-
                 // how many queries we can handle within mem budget
                 size_t nq_ok = std::max(max_lut_size / lut_size_per_query, size_t(1));
-
-                nslice = roundup(n / nq_ok, omp_get_max_threads());
+                nslice = roundup(std::max(n / nq_ok, size_t(1)), omp_get_max_threads());
             } else {
                 // LUTs unlikely to be a limiting factor
                 nslice = omp_get_max_threads();
