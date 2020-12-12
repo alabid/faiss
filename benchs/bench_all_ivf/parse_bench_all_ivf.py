@@ -15,7 +15,6 @@ from argparse import Namespace
 # from faiss.contrib.factory_tools import get_code_size as unitsize
 
 
-
 def get_code_size(d, indexkey):
     """ size of one vector in an index in dimension d
     constructed with factory string indexkey"""
@@ -493,3 +492,49 @@ if __name__ == "__main__":
 
 
 
+
+if __name__ == "__main__xx":
+    db = 'sift1M'
+    allres, allstats = collect_results_for(db=db, prefix="autotune.")
+    pyplot.gcf().set_size_inches(15, 10)
+
+    keys = [
+        "IVF1024,PQ32x8",
+        "IVF1024,PQ64x4",
+        "IVF1024,PQ64x4fs",
+        "IVF1024,PQ64x4fsr",
+        "IVF1024,SQ4",
+        "IVF1024,SQ8"
+    ]
+
+    plot_subset(allres, allstats, keys, recall_idx=0, report=["code_size"])
+
+    pyplot.legend()
+    pyplot.title(db)
+    pyplot.xlabel("1-recall@1")
+    pyplot.ylabel("QPS (32 threads)")
+    pyplot.grid()
+
+    pyplot.savefig('../plots/ivf1024_variants.png')
+
+    pyplot.figure(2)
+    pyplot.gcf().set_size_inches(15, 10)
+
+    keys = [
+        "HNSW32",
+        "IVF1024,PQ64x4fs",
+        "IVF1024,PQ64x4fsr",
+        "IVF1024,PQ64x4fs,RFlat",
+        "IVF1024,PQ64x4fs,Refine(SQfp16)",
+        "IVF1024,PQ64x4fs,Refine(SQ8)",
+    ]
+
+    plot_subset(allres, allstats, keys, recall_idx=0, report=["code_size"])
+
+    pyplot.legend()
+    pyplot.title(db)
+    pyplot.xlabel("1-recall@1")
+    pyplot.ylabel("QPS (32 threads)")
+    pyplot.grid()
+
+    pyplot.savefig('../plots/ivf1024_rerank.png')

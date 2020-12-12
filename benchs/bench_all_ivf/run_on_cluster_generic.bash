@@ -175,13 +175,15 @@ done
 
 
 
+
 ############################### Preliminary SIFT1M experiment
 
 
 for db in sift1M  ; do
 
-    #    IVF1024
-    for coarse in IVF4096 IVF2048 IVF256 IVF512
+    #
+    # IVF4096 IVF2048 IVF256 IVF512
+    for coarse in  IVF1024
     do
         indexkeys="
             HNSW32
@@ -197,6 +199,11 @@ for db in sift1M  ; do
             OPQ64,$coarse,PQ64x4fs
             OPQ64,$coarse,PQ64x4fs,RFlat
         "
+        indexkeys="
+            $coarse,PQ64x4fsr
+            $coarse,PQ64x4fsr,RFlat
+        "
+
         # OPQ actually degrades the results on SIFT1M, so let's ignore
 
         for indexkey in $indexkeys
@@ -220,7 +227,6 @@ done
 
 
 
-
 ############################### 1M experiments
 
 # .g: redo all experiments after IVF optimization and SQ compile fix
@@ -233,7 +239,6 @@ for db in sift1M deep1M music-100 glove; do
     dim_2=$((dim/2))
     for coarse in IVF1024 IVF4096_HNSW32
     do
-
 
         indexkeys="
             OPQ8_64,$coarse,PQ8
@@ -334,7 +339,7 @@ for db in deep1M bigann1M; do
 done
 
 ###############################
-########### coarse quantizer experiments
+## coarse quantizer experiments on the centroids of deep1B
 
 
 for k in 4 8 16 64 256; do
@@ -374,12 +379,9 @@ done
 
 
 ############################### 10M experiments
-
+fi
 
 for db in deep10M bigann10M; do
-    coarses_skip="
-        IVF65536
-    "
 
     coarses="
         IVF65536(IVF256,PQHDx4fs,RFlat)
@@ -398,45 +400,52 @@ for db in deep10M bigann10M; do
 
         indexkeys="
             $coarseD,PQ$((dim/2))x4fs
+
             OPQ8_64,$coarse64,PQ8
             PCAR16,$coarse16,SQ4
+            OPQ16_64,$coarse64,PQ16x4fs
+            OPQ16_64,$coarse64,PQ16x4fsr
+
             OPQ16_64,$coarse64,PQ16
-            PCAR32,$coarse32,SQ4
             PCAR16,$coarse16,SQ8
+            PCAR32,$coarse32,SQ4
+            OPQ32_64,$coarse64,PQ32x4fs
+            OPQ32_64,$coarse64,PQ32x4fsr
+
             OPQ32_128,$coarse128,PQ32
-            PCAR64,$coarse64,SQ4
             PCAR32,$coarse32,SQ8
+            PCAR64,$coarse64,SQ4
             PCAR16,$coarse16,SQfp16
+            OPQ64_128,$coarse128,PQ64x4fs
+            OPQ64_128,$coarse128,PQ64x4fsr
+
+            OPQ64_128,$coarse128,PQ64
             PCAR64,$coarse64,SQ8
             PCAR32,$coarse32,SQfp16
             PCAR128,$coarse128,SQ4
-            OPQ64_128,$coarse128,PQ64
-
             OPQ128_256,$coarse256,PQ128x4fs
-            OPQ64_128,$coarse128,PQ64x4fs
-            OPQ32_64,$coarse64,PQ32x4fs
-            OPQ16_64,$coarse64,PQ16x4fs
-
+            OPQ128_256,$coarse256,PQ128x4fsr
+            OPQ56_112,$coarse112,PQ7+56
             OPQ16_64,$coarse64,PQ16x4fs,Refine(OPQ56_112,PQ56)
             OPQ16_64,$coarse64,PQ16x4fs,Refine(PCAR72,SQ6)
             OPQ32_64,$coarse64,PQ16x4fs,Refine(PCAR64,SQ6)
             OPQ32_64,$coarse64,PQ32x4fs,Refine(OPQ48_96,PQ48)
-            OPQ56_112,$coarse112,PQ7+56
         "
 
         indexkeys="
-            OPQ128_256,$coarse256,PQ128x4fsr
-            OPQ64_128,$coarse128,PQ64x4fsr
-            OPQ32_64,$coarse64,PQ32x4fsr
             OPQ16_64,$coarse64,PQ16x4fsr
+            OPQ32_64,$coarse64,PQ32x4fsr
+            OPQ64_128,$coarse128,PQ64x4fsr
+            OPQ128_256,$coarse256,PQ128x4fsr
         "
+
 
         for indexkey in $indexkeys
         do
             key=autotune.db$db.${indexkey//,/_}
             key="${key//(/_}"
             key="${key//)/_}"
-            run_on_1machine_3h $key.k \
+            run_on_1machine_3h $key.l \
               python -u bench_all_ivf.py \
                     --db $db \
                     --indexkey "$indexkey" \
@@ -450,7 +459,8 @@ for db in deep10M bigann10M; do
     done
 done
 
-fi
+if false; then
+
 ############################### 100M experiments
 
 for db in deep100M bigann100M; do
@@ -522,7 +532,6 @@ for db in deep100M bigann100M; do
     done
 done
 
-if false; then
 
 
 #################################
