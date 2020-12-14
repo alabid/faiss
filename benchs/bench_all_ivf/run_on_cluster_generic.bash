@@ -93,6 +93,9 @@ function add_precomputed_quantizer () {
     case $db in
         bigann*) rname=bigann ;;
         deep*)   rname=deep ;;
+        sift1M) return;;
+        music-100) return ;;
+        glove) return ;;
         *) echo "bad db"; exit 1;;
     esac
 
@@ -226,48 +229,56 @@ done
 
 
 
-
 ############################### 1M experiments
 
 # .g: redo all experiments after IVF optimization and SQ compile fix
 
-# for db in sift1M deep1M bigann1M; do
-for db in sift1M deep1M music-100 glove; do
+# for db in sift1M deep1M music-100 glove; do
+
+for db in glove ; do
 
     dim=$( get_db_dim $db )
-    dim_4=$((dim/4))
-    dim_2=$((dim/2))
+
     for coarse in IVF1024 IVF4096_HNSW32
     do
 
+        replace_coarse_PQHD "$coarse" $dim
+
         indexkeys="
-            OPQ8_64,$coarse,PQ8
-            PCAR16,$coarse,SQ4
-            OPQ16_64,$coarse,PQ16
-            PCAR32,$coarse,SQ4
-            PCAR16,$coarse,SQ8
-            OPQ32_128,$coarse,PQ32
-            PCAR64,$coarse,SQ4
-            PCAR32,$coarse,SQ8
-            PCAR16,$coarse,SQfp16
-            PCAR64,$coarse,SQ8
-            PCAR32,$coarse,SQfp16
-            PCAR128,$coarse,SQ4
-            OPQ128_256,$coarse,PQ128x4fs
-            OPQ64_128,$coarse,PQ64x4fs
-            OPQ32_64,$coarse,PQ32x4fs
-            OPQ128_256,$coarse,PQ128x4fs,RFlat
+            $coarseD,PQ$((dim/2))x4fs
+            $coarseD,PQ$((dim/2))x4fsr
+
+            OPQ8_64,$coarse64,PQ8
+            PCAR16,$coarse16,SQ4
+            OPQ16_64,$coarse64,PQ16x4fs
+            OPQ16_64,$coarse64,PQ16x4fsr
+
+            OPQ16_64,$coarse64,PQ16
+            PCAR16,$coarse16,SQ8
+            PCAR32,$coarse32,SQ4
+            OPQ32_64,$coarse64,PQ32x4fs
+            OPQ32_64,$coarse64,PQ32x4fsr
+
+            OPQ32_128,$coarse128,PQ32
+            PCAR32,$coarse32,SQ8
+            PCAR64,$coarse64,SQ4
+            PCAR16,$coarse16,SQfp16
+            OPQ64_128,$coarse128,PQ64x4fs
+            OPQ64_128,$coarse128,PQ64x4fsr
+
+            OPQ64_128,$coarse128,PQ64
+            PCAR64,$coarse64,SQ8
+            PCAR32,$coarse32,SQfp16
+            PCAR128,$coarse128,SQ4
+            OPQ128_256,$coarse256,PQ128x4fs
+            OPQ128_256,$coarse256,PQ128x4fsr
+            OPQ16_64,$coarse64,PQ16x4fs,Refine(OPQ56_112,PQ56)
+            OPQ16_64,$coarse64,PQ16x4fs,Refine(PCAR72,SQ6)
+            OPQ32_64,$coarse64,PQ16x4fs,Refine(PCAR64,SQ6)
+            OPQ32_64,$coarse64,PQ32x4fs,Refine(OPQ48_96,PQ48)
+            OPQ64_128,$coarse,PQ64x12
+
             OPQ64_128,$coarse,PQ64x4fs,RFlat
-            OPQ32_64,$coarse,PQ32x4fs,RFlat
-            PCAR32,$coarse,SQ4,RFlat
-            PCAR64,$coarse,SQ4,RFlat
-            PCAR128,$coarse,SQ4,RFlat
-            PCAR12,$coarse,SQ8,RFlat
-            PCAR32,$coarse,SQ8,RFlat
-            PCAR64,$coarse,SQ8,RFlat
-            OPQ128_256,$coarse,PQ128x4fs,Refine(SQfp16)
-            OPQ128_256,$coarse,PQ128x4fs,Refine(SQ8)
-            OPQ128_256,$coarse,PQ128x4fs,Refine(SQ6)
             OPQ64_128,$coarse,PQ64x4fs,Refine(SQfp16)
             OPQ64_128,$coarse,PQ64x4fs,Refine(SQ8)
             OPQ64_128,$coarse,PQ64x4fs,Refine(SQ6)
@@ -276,44 +287,30 @@ for db in sift1M deep1M music-100 glove; do
             OPQ32_64,$coarse,PQ32x4fs,Refine(SQ8)
             OPQ32_64,$coarse,PQ32x4fs,Refine(SQ6)
             OPQ32_64,$coarse,PQ32x4fs,Refine(SQ4)
-            OPQ128_256,$coarse,PQ128x4fs,Refine(PCAR${dim_2},SQ8)
-            OPQ64_128,$coarse,PQ64x4fs,Refine(PCAR${dim_2},SQ8)
-            OPQ32_64,$coarse,PQ32x4fs,Refine(PCAR${dim_2},SQ8)
-            OPQ128_256,$coarse,PQ128x4fs,Refine(PQ${dim_4})
-            OPQ64_128,$coarse,PQ64x4fs,Refine(PQ${dim_4})
-            OPQ32_64,$coarse,PQ32x4fs,Refine(PQ${dim_4})
-            OPQ128_256,$coarse,PQ128x4fs,Refine(PQ${dim_2})
-            OPQ64_128,$coarse,PQ64x4fs,Refine(PQ${dim_2})
-            OPQ32_64,$coarse,PQ32x4fs,Refine(PQ${dim_2})
-            OPQ32_64,$coarse,PQ32x4fs,Refine(PQ${dim_2}x12)
-            OPQ64_128,$coarse,PQ64
-            OPQ64_128,$coarse,PQ64x12
+
         "
-        indexkeys="
-            HNSW32
-            $coarse,SQfp16
-            $coarse,SQ4
-            $coarse,SQ8
-            $coarse,PQ32x8
-            $coarse,PQ64x4
-            $coarse,PQ64x4fs
-        "
+
         for indexkey in $indexkeys
         do
-            # escape nasty characters
-            key="autotune.db$db.${indexkey//,/_}"
+            key=autotune.db$db.${indexkey//,/_}
             key="${key//(/_}"
             key="${key//)/_}"
-            run_on_1machine_1h $key.c \
-                 python -u bench_all_ivf.py \
+            run_on_1machine_3h $key.o \
+              python -u bench_all_ivf.py \
                     --db $db \
                     --indexkey "$indexkey" \
                     --maxtrain 0  \
-                    --indexfile $indexdir/$key.faissindex \
-                    --searchthreads 32
+                    --indexfile "$indexdir/$key.faissindex" \
+                    $( add_precomputed_quantizer $db $coarse ) \
+                    --searchthreads 32 \
+                    --min_test_duration 3 \
+                    --autotune_max nprobe:2000
         done
+
+
     done
 done
+
 
 
 ############################################
@@ -379,7 +376,7 @@ done
 
 
 ############################### 10M experiments
-fi
+
 
 for db in deep10M bigann10M; do
 
@@ -459,7 +456,6 @@ for db in deep10M bigann10M; do
     done
 done
 
-if false; then
 
 ############################### 100M experiments
 
@@ -532,7 +528,7 @@ for db in deep100M bigann100M; do
     done
 done
 
-
+fi
 
 #################################
 # 1B-scale experiment
@@ -564,16 +560,16 @@ for db in deep1B bigann1B; do
 
         indexkeys="
             OPQ8_64,$coarse64,PQ8
-            OPQ16_64,$coarse64,PQ16x4fs
+            OPQ16_64,$coarse64,PQ16x4fsr
 
             OPQ16_64,$coarse64,PQ16
-            OPQ32_64,$coarse64,PQ32x4fs
+            OPQ32_64,$coarse64,PQ32x4fsr
 
             OPQ32_128,$coarse128,PQ32
-            OPQ64_128,$coarse128,PQ64x4fs
+            OPQ64_128,$coarse128,PQ64x4fsr
 
             OPQ64_128,$coarse128,PQ64
-            OPQ128_256,$coarse256,PQ128x4fs
+            OPQ128_256,$coarse256,PQ128x4fsr
             OPQ56_112,$coarse112,PQ7+56
             OPQ16_64,$coarse64,PQ16x4fs,Refine(OPQ56_112,PQ56)
 
@@ -585,7 +581,7 @@ for db in deep1B bigann1B; do
             key=autotune.db$db.${indexkey//,/_}
             key="${key//(/_}"
             key="${key//)/_}"
-            run_on_1machine $key.b \
+            run_on_1machine $key.c \
                  python -u bench_all_ivf.py \
                     --db $db \
                     --indexkey "$indexkey" \
@@ -601,6 +597,3 @@ for db in deep1B bigann1B; do
 
 done
 
-
-
-fi

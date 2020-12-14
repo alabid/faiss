@@ -94,7 +94,13 @@ void Level1Quantizer::train_q1 (size_t n, const float *x, bool verbose, MetricTy
                 n, d,
                 clustering_index ? "(user provided index)" : "");
         }
-        FAISS_THROW_IF_NOT (metric_type == METRIC_L2);
+        // also accept spherical centroids because in that case
+        // L2 and IP are equivalent
+        FAISS_THROW_IF_NOT (
+            metric_type == METRIC_L2 ||
+            (metric_type == METRIC_INNER_PRODUCT && cp.spherical)
+        );
+
         Clustering clus (d, nlist, cp);
         if (!clustering_index) {
             IndexFlatL2 assigner (d);

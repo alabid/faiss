@@ -123,7 +123,10 @@ else:
 
     print("build index, key=", args.indexkey)
 
-    index = faiss.index_factory(d, args.indexkey)
+    index = faiss.index_factory(
+        d, args.indexkey, faiss.METRIC_L2 if ds.metric == "L2" else
+        faiss.METRIC_INNER_PRODUCT
+    )
 
     index_ivf, vec_transform = unwind_index_ivf(index)
     if vec_transform is None:
@@ -179,12 +182,15 @@ else:
         maxtrain = max(maxtrain, 256 * 100)
         print("setting maxtrain to %d" % maxtrain)
 
-    xt2 = ds.get_train(maxtrain=maxtrain)
-    assert np.all(np.isfinite(xt2))
+    try:
+        xt2 = ds.get_train(maxtrain=maxtrain)
+    except NotImplementedError:
+        print("No training set: training on database")
+        xt2 = ds.get_database()[:maxtrain]
 
     print("train, size", xt2.shape)
+    assert np.all(np.isfinite(xt2))
 
-    print(vec_transform, index_ivf)
     if (isinstance(vec_transform, faiss.OPQMatrix) and
         isinstance(index_ivf, faiss.IndexIVFPQFastScan)):
         print("  Forcing OPQ training PQ to PQ4")
