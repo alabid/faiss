@@ -414,21 +414,22 @@ void IndexIVFPQFastScan::compute_LUT(
                 pq.compute_inner_prod_tables (n, x, ip_table.get());
 
 #pragma omp parallel for if (n * nprobe > 8000)
-                for(idx_t i = 0; i < n; i++) {
-                    for(idx_t j = 0; j < nprobe; j++) {
-                        size_t ij = i * nprobe + j;
-                        idx_t cij = coarse_ids[ij];
-                        if (cij >= 0) {
-                            fvec_madd_avx (
-                                dim12,
-                                precomputed_table.get() + cij * dim12,
-                                -2, ip_table.get() + i * dim12,
-                                dis_tables.get() + ij * dim12
-                            );
-                        } else {
-                            // fill with NaNs so that they are ignored during quantization
-                            memset (dis_tables.get() + ij * dim12, -1, sizeof(float) * dim12);
-                        }
+                for(idx_t ij = 0; ij < n * nprobe; ij++) {
+                    idx_t i = ij / nprobe;
+                    float *tab = dis_tables.get() + ij * dim12;
+                    idx_t cij = coarse_ids[ij];
+
+                    if (cij >= 0) {
+                        fvec_madd_avx (
+                            dim12,
+                            precomputed_table.get() + cij * dim12,
+                            -2, ip_table.get() + i * dim12,
+                            tab
+                        );
+                    } else {
+                        // fill with NaNs so that they are ignored during
+                        // LUT quantization
+                        memset (tab, -1, sizeof(float) * dim12);
                     }
                 }
 
@@ -439,11 +440,17 @@ void IndexIVFPQFastScan::compute_LUT(
                 memset(biases.get(), 0, sizeof(float) * n * nprobe);
 
 #pragma omp parallel for if (n * nprobe > 8000)
-                for(idx_t i = 0; i < n; i++) {
-                    for(idx_t j = 0; j < nprobe; j++) {
+                for(idx_t ij = 0; ij < n * nprobe; ij++) {
+                    idx_t i = ij / nprobe;
+                    float *xij = &xrel[ij * d];
+                    idx_t cij = coarse_ids[ij];
+
+                    if (cij >= 0) {
                         ivfpq.quantizer->compute_residual(
-                            x + i * d, &xrel[(i * nprobe + j) * d],
-                            coarse_ids[i * nprobe + j]);
+                            x + i * d, xij, cij);
+                    } else {
+                        // will fill with NaNs
+                        memset(xij, -1, sizeof(float) * d);
                     }
                 }
 
@@ -943,9 +950,9 @@ void IndexIVFPQFastScan::search_implem_12(
     TIC;
 
     struct QC {
-        int qno;
-        int list_no;
-        int rank;
+        int qno;      // sequence number of the query
+        int list_no;  // list to visit
+        int rank;     // this is the rank'th result of the coarse quantizer
     };
     bool single_LUT = !(by_residual && metric_type == METRIC_L2);
 
@@ -968,6 +975,8 @@ void IndexIVFPQFastScan::search_implem_12(
         );
     }
     TIC;
+
+    // prepare the result handlers
 
     std::unique_ptr<SIMDResultHandler<C, true> > handler;
     AlignedTable<uint16_t> tmp_distances;
@@ -1001,6 +1010,7 @@ void IndexIVFPQFastScan::search_implem_12(
     while (i0 < qcs.size()) {
         uint64_t tt0 = get_cy();
 
+        // find all queries that access this inverted list
         int list_no = qcs[i0].list_no;
         size_t i1 = i0 + 1;
 
@@ -1018,6 +1028,7 @@ void IndexIVFPQFastScan::search_implem_12(
             continue;
         }
 
+        // re-organize LUTs and biases into the right order
         int nc = i1 - i0;
 
         std::vector<int> q_map(nc), lut_entries(nc);
@@ -1039,10 +1050,14 @@ void IndexIVFPQFastScan::search_implem_12(
             LUT.get()
         );
 
+        // access the inverted list
+
         ndis += (i1 - i0) * list_size;
 
         InvertedLists::ScopedCodes codes(invlists, list_no);
         InvertedLists::ScopedIds ids(invlists, list_no);
+
+        // prepare the handler
 
         handler->ntotal = list_size;
         handler->q_map = q_map.data();
@@ -1061,14 +1076,16 @@ void IndexIVFPQFastScan::search_implem_12(
         else DISPATCH(ReservoirHC)
         else DISPATCH(SingleResultHC)
 
+        // prepare for next loop
+        i0 = i1;
+
         uint64_t tt2 = get_cy();
         t_copy_pack += tt1 - tt0;
         t_scan += tt2 - tt1;
-        i0 = i1;
     }
     TIC;
 
-    // labels is the same array
+    // labels is in-place for HeapHC
     handler->to_flat_arrays(
             distances, labels,
             skip & 16 ? nullptr : normalizers.get()

@@ -6,6 +6,7 @@
 import os
 import sys
 import time
+import pdb
 import numpy as np
 import faiss
 import argparse
@@ -284,7 +285,7 @@ print("precomputed tables size:", precomputed_table_size)
 
 xq = sanitize(ds.get_queries())
 gt = ds.get_groundtruth(k=args.k)
-assert gt.shape[1] == args.k
+assert gt.shape[1] == args.k, pdb.set_trace()
 
 if args.searchthreads != -1:
     print("Setting nb of threads to", args.searchthreads)
